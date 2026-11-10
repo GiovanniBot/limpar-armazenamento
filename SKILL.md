@@ -1,21 +1,32 @@
 ---
 name: limpar-armazenamento
-description: Diagnostica e limpa espaço em disco no Windows com segurança. Use quando o usuário pedir para liberar espaço, limpar armazenamento, ver o que está ocupando o disco/SSD, reclamar de disco cheio ou de pouco espaço. Mede pastas rápido, acha worktrees git antigas de agentes de IA (Claude Code, Codex e outros) e guarda backup do que não está no GitHub antes de remover, poda imagens Docker, limpa caches, instaladores em Downloads e move pastas grandes para outro disco sem quebrar apps.
+description: Diagnostica e limpa espaço em disco no Windows com segurança, para qualquer agente de IA que rode comandos (Claude Code, Codex, Cursor, Gemini CLI, Copilot e outros). Use quando o usuário pedir para liberar espaço, limpar armazenamento, ver o que está ocupando o disco/SSD, reclamar de disco cheio ou de pouco espaço. Mede pastas rápido, acha worktrees git antigas de agentes e guarda backup do que não está no GitHub antes de remover, poda imagens Docker, limpa caches, instaladores em Downloads e move pastas grandes para outro disco sem quebrar apps.
 ---
 
 # Limpar armazenamento (Windows)
 
-Responda no idioma do usuário. Trabalhe em etapas curtas, mostre números (GB) e **pergunte antes
-de apagar**. Grave CSVs, logs e saídas numa pasta temporária (scratchpad da sessão ou `$env:TEMP`),
-nunca dentro de um repositório.
+Skill no formato aberto de Agent Skills: funciona com qualquer agente que lê `SKILL.md`
+(Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode e outros) e que consegue
+rodar comandos no PowerShell do Windows.
 
-Scripts desta skill: `scripts\` ao lado deste arquivo
-(normalmente `$env:USERPROFILE\.claude\skills\limpar-armazenamento\scripts`). Chame-os pelo caminho
-completo, com o PowerShell (pwsh 7 de preferência: `medir-pastas.ps1` usa `Start-ThreadJob`).
+Responda no idioma do usuário. Trabalhe em etapas curtas, mostre números (GB) e **pergunte antes
+de apagar**. Se o seu agente tiver lista de tarefas ou plano visível, use-a para mostrar as etapas.
+Grave CSVs, logs e saídas numa pasta temporária (a pasta de rascunho da sua sessão, se houver, ou
+`$env:TEMP\limpar-armazenamento`), nunca dentro de um repositório.
+
+Os scripts ficam em `scripts\`, **na mesma pasta deste SKILL.md**. Use o caminho real de onde a
+skill foi instalada; se não souber, este trecho procura nas pastas de skills mais comuns:
 
 ```powershell
-$sk = "$env:USERPROFILE\.claude\skills\limpar-armazenamento\scripts"
+$sk = @("$env:USERPROFILE\.agents\skills", "$env:USERPROFILE\.claude\skills", "$env:USERPROFILE\.codex\skills",
+        "$env:USERPROFILE\.cursor\skills", "$env:USERPROFILE\.gemini\skills", "$env:USERPROFILE\.copilot\skills", ".agents\skills") |
+  ForEach-Object { Join-Path $_ 'limpar-armazenamento\scripts' } | Where-Object { Test-Path $_ } | Select-Object -First 1
+$sk
 ```
+
+Rode os scripts com PowerShell 7 (`pwsh`) de preferência, porque `medir-pastas.ps1` usa `Start-ThreadJob`.
+Comandos longos (backup, remoção, medição do C: inteiro) podem passar de 10 minutos: se o seu agente
+tiver execução em segundo plano, use-a; senão, divida por pasta.
 
 ## Regras de segurança (não negociáveis)
 
@@ -27,10 +38,10 @@ $sk = "$env:USERPROFILE\.claude\skills\limpar-armazenamento\scripts"
    `.jks`/`keystore.properties`, certificados). Liste para o usuário o que achou e guarde num
    zip no disco de backup.
 3. **Backup e remoção são passos separados.** Rode o backup, confira o log (0 FAIL) e só depois
-   remova. Classificadores de modo automático costumam bloquear "backup + apagar" no mesmo comando,
+   remova. Agentes com aprovação automática costumam bloquear "backup + apagar" no mesmo comando,
    e o passo separado também é mais seguro.
 4. **Não mexa em worktrees modificadas há menos de 2 dias**: podem pertencer a uma sessão de
-   agente aberta agora.
+   agente aberta agora (deste ou de outro agente).
 5. **Nunca remova o checkout principal de um repositório** pelos scripts de worktree. Pastas
    sem `.git` e sem histórico só saem com confirmação explícita.
 6. A Lixeira fica no mesmo disco e não libera espaço. Apague de vez só o que foi aprovado.
@@ -57,7 +68,7 @@ depois uma tabela **"o que dá para liberar | ganho | risco"** para o usuário e
 
 | Item | Onde | Ação |
 |---|---|---|
-| Worktrees git de agentes de IA | `~\.codex\worktrees`, `<repo>\.claude\worktrees`, `~\.ao\data\worktrees`, pastas de worktrees que o usuário criou | Passo 2. Costuma ser o maior ganho (cada uma tem node_modules, builds, `.tmp`) |
+| Worktrees git de agentes de IA | `~\.codex\worktrees`, `<repo>\.claude\worktrees`, `<repo>\.worktrees`, `<repo>\.trees`, `~\.ao\data\worktrees`, pastas de worktrees que o usuário criou | Passo 2. Costuma ser o maior ganho (cada uma tem node_modules, builds, `.tmp`) |
 | Disco do WSL | `AppData\Local\wsl\*\ext4.vhdx`, `AppData\Local\Packages\*Ubuntu*\LocalState\ext4.vhdx` | Limpe dentro do Linux (Passo 3). O vhdx não encolhe sozinho |
 | Docker Desktop | `AppData\Local\Docker\wsl\disk\docker_data.vhdx` | Passo 3 |
 | Caches | `AppData\Local\NVIDIA\DXCache`, `~\.gradle\caches`, npm-cache, pnpm store, Chrome/Edge Cache, `AppData\Local\Temp` | Passo 4 |
@@ -101,8 +112,8 @@ continuam no git; só as pastas saem. **Restaurar:** `git worktree add <pasta> <
 `git status --ignored --porcelain` (fora de node_modules/build). Zipe os arquivos ignorados que
 importam (segredos e chaves) no disco de backup e confira o hash dos críticos antes de apagar a pasta.
 
-Se for Claude Code no app desktop, `mcp__ccd_host__clean_up_worktrees` remove worktrees de sessões
-inativas há 30/60/90 dias, com cartão de aprovação.
+Se o seu agente tiver um comando próprio para limpar as worktrees que ele mesmo criou (alguns apps
+têm "limpar sessões inativas"), prefira-o para essas pastas: ele sabe quais sessões ainda estão abertas.
 
 ## Passo 3: Docker e WSL
 
@@ -110,8 +121,9 @@ inativas há 30/60/90 dias, com cartão de aprovação.
   `wsl -d <distro> -- bash -lc 'docker system df'`. Pode haver Docker Desktop no Windows **e** um
   Docker nativo dentro de uma distro (ex.: usado por um runner de CI). Antes de podar, veja se há
   build ou runner rodando.
-- Podar com segurança, mantendo o cache recente (use o Bash tool ou um `.sh`; aspas do PowerShell
-  quebram `bash -c`):
+- Podar com segurança, mantendo o cache recente. Para Docker dentro do WSL, rode via `bash` ou
+  `wsl -d <distro> -- bash -lc '...'` a partir de um shell bash; as aspas do PowerShell costumam
+  quebrar o `bash -c`:
 
 ```bash
 docker image prune -a -f --filter "until=48h"
@@ -135,8 +147,10 @@ Remove-Item -LiteralPath "$env:LOCALAPPDATA\NVIDIA\DXCache" -Recurse -Force -EA 
 Remove-Item -LiteralPath "$env:USERPROFILE\.gradle\caches" -Recurse -Force -EA SilentlyContinue
 npm cache clean --force
 pnpm store prune
-# Temp do usuário: só itens com mais de 1 dia, e nunca a pasta 'claude' (scratchpad das sessões)
-$cut=(Get-Date).AddDays(-1); Get-ChildItem $env:TEMP -Force | ? { $_.Name -ne 'claude' -and $_.LastWriteTime -lt $cut } | Remove-Item -Recurse -Force -EA SilentlyContinue
+# Temp do usuário: só itens com mais de 1 dia; pule pastas de rascunho de agentes em uso
+# (ex.: 'claude', 'limpar-armazenamento') e a pasta temporária da sua própria sessão
+$keep = 'claude', 'limpar-armazenamento'
+$cut=(Get-Date).AddDays(-1); Get-ChildItem $env:TEMP -Force | ? { $_.Name -notin $keep -and $_.LastWriteTime -lt $cut } | Remove-Item -Recurse -Force -EA SilentlyContinue
 # Chrome/Edge: só as pastas Cache, Code Cache e GPUCache dentro de cada perfil em "User Data"
 ```
 

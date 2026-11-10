@@ -1,9 +1,11 @@
 # limpar-armazenamento
 
-Skill para o [Claude Code](https://claude.com/claude-code) que **diagnostica e libera espaço em
-disco no Windows sem perder trabalho**.
+**Agent Skill** que **diagnostica e libera espaço em disco no Windows sem perder trabalho**.
+Funciona com **qualquer agente de IA** que leia skills no formato aberto `SKILL.md` e rode comandos
+no seu PC: Claude Code, OpenAI Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode, Windsurf e
+outros.
 
-Você pede "meu SSD está cheio, libera espaço" e o Claude:
+Você pede "meu SSD está cheio, libera espaço" e o agente:
 
 1. mede o disco por pasta (em minutos, inclusive pastas com `node_modules`);
 2. mostra uma tabela com onde está o espaço e o que dá para liberar, com ganho e risco;
@@ -18,27 +20,50 @@ reduzir o pagefile nem perder nenhum trabalho.
 
 ## Instalação
 
-Requisitos: Windows 10/11, [Claude Code](https://docs.claude.com/en/docs/claude-code/overview),
-`git` e PowerShell 7 (`pwsh`), que é o recomendado.
+Requisitos: Windows 10/11, um agente de IA que execute comandos no terminal, `git` e PowerShell 7
+(`pwsh`), que é o recomendado.
 
-### Opção A: com git (recomendado, fica fácil atualizar)
+### Opção A: `npx skills` (instala para os agentes que você tem)
 
-No PowerShell:
+Com Node.js instalado, o instalador aberto [`skills`](https://www.npmjs.com/package/skills) detecta
+os agentes da máquina e coloca a skill na pasta certa de cada um:
 
-```powershell
-git clone https://github.com/GiovanniBot/limpar-armazenamento "$env:USERPROFILE\.claude\skills\limpar-armazenamento"
+```bash
+npx skills add GiovanniBot/limpar-armazenamento -g
 ```
 
-Para atualizar depois:
+`-g` instala para todos os projetos. Para escolher o agente, use `-a`, por exemplo `-a codex` ou
+`-a claude-code`. Depois: `npx skills update` atualiza e `npx skills remove limpar-armazenamento`
+remove.
+
+### Opção B: `git clone` na pasta de skills do seu agente
+
+Clone direto na pasta de skills do agente que você usa:
+
+| Agente | Pasta de skills (global) |
+|---|---|
+| Padrão aberto (lido por vários agentes) | `%USERPROFILE%\.agents\skills` |
+| Claude Code | `%USERPROFILE%\.claude\skills` |
+| OpenAI Codex | `%USERPROFILE%\.codex\skills` |
+| Cursor | `%USERPROFILE%\.cursor\skills` |
+| Gemini CLI | `%USERPROFILE%\.gemini\skills` |
+| GitHub Copilot | `%USERPROFILE%\.copilot\skills` |
+
+Exemplo no PowerShell (troque `.agents` pela pasta do seu agente):
 
 ```powershell
-git -C "$env:USERPROFILE\.claude\skills\limpar-armazenamento" pull
+git clone https://github.com/GiovanniBot/limpar-armazenamento "$env:USERPROFILE\.agents\skills\limpar-armazenamento"
 ```
 
-### Opção B: sem git (baixa o zip)
+Para atualizar: `git -C "$env:USERPROFILE\.agents\skills\limpar-armazenamento" pull`.
+
+As pastas mudam de versão para versão. Se o seu agente não achar a skill, veja na documentação dele
+onde ficam as skills e clone lá.
+
+### Opção C: sem git (zip)
 
 ```powershell
-$dest = "$env:USERPROFILE\.claude\skills"
+$dest = "$env:USERPROFILE\.agents\skills"   # troque pela pasta do seu agente
 New-Item -ItemType Directory -Force $dest | Out-Null
 Invoke-WebRequest https://github.com/GiovanniBot/limpar-armazenamento/archive/refs/heads/main.zip -OutFile "$env:TEMP\limpar-armazenamento.zip"
 Expand-Archive "$env:TEMP\limpar-armazenamento.zip" -DestinationPath $dest -Force
@@ -46,37 +71,38 @@ Remove-Item "$dest\limpar-armazenamento" -Recurse -Force -ErrorAction SilentlyCo
 Rename-Item "$dest\limpar-armazenamento-main" "limpar-armazenamento"
 ```
 
-### Opção C: pedir para o próprio Claude instalar
+### Opção D: pedir para o próprio agente instalar
 
-Cole isto num chat do Claude Code:
+Cole isto no chat do seu agente:
 
-> Instale a skill de https://github.com/GiovanniBot/limpar-armazenamento clonando o repositório em
-> `~/.claude/skills/limpar-armazenamento` e confirme que o arquivo SKILL.md ficou lá.
+> Instale a Agent Skill de https://github.com/GiovanniBot/limpar-armazenamento na sua pasta de
+> skills globais (clone o repositório numa subpasta `limpar-armazenamento`) e confirme que o
+> SKILL.md ficou lá.
+
+### Agente sem suporte a skills?
+
+Funciona mesmo assim: clone o repositório em qualquer pasta e diga ao agente
+*"leia `<pasta>\limpar-armazenamento\SKILL.md` e siga as instruções para liberar espaço no meu disco"*.
 
 ### Conferir
 
-O arquivo precisa ficar exatamente em:
-
-```
-C:\Users\<seu-usuario>\.claude\skills\limpar-armazenamento\SKILL.md
-```
-
-Abra **um chat novo** no Claude Code (as skills são carregadas no início do chat) e digite
-`/limpar-armazenamento`. Se ela aparecer na lista do `/`, está instalada.
+Abra **uma conversa nova** (os agentes carregam as skills no início) e pergunte
+"quais skills você tem?". A `limpar-armazenamento` deve aparecer. Em agentes com comandos `/`,
+ela costuma aparecer como `/limpar-armazenamento`.
 
 ---
 
 ## Como usar
 
-Em qualquer chat do Claude Code, peça com suas palavras, por exemplo:
+Peça com suas palavras, por exemplo:
 
 - "meu disco C: está cheio, o que está ocupando espaço?"
 - "libera espaço no SSD"
-- `/limpar-armazenamento`
+- "use a skill limpar-armazenamento"
 
 O fluxo é sempre o mesmo:
 
-| Etapa | O que o Claude faz | Apaga algo? |
+| Etapa | O que o agente faz | Apaga algo? |
 |---|---|---|
 | 1. Medir | Tamanho por pasta do C:, do seu usuário e do AppData | Não |
 | 2. Propor | Tabela "o que dá para liberar, quanto, qual o risco" | Não |
@@ -87,8 +113,8 @@ O fluxo é sempre o mesmo:
 
 ### O que ela sabe limpar
 
-- **Worktrees git de agentes de IA** (Claude Code, Codex e outros): costuma ser o maior ganho.
-  Cada worktree tem seu próprio `node_modules`, builds e arquivos temporários.
+- **Worktrees git de agentes de IA** (Claude Code, Codex, Cursor e outros): costuma ser o maior
+  ganho. Cada worktree tem seu próprio `node_modules`, builds e arquivos temporários.
 - **Docker**: imagens e cache de build antigos (mantém o recente) e Docker Desktop sem uso.
 - **Caches**: shaders da NVIDIA, Gradle, npm, pnpm, Chrome/Edge e Temp.
 - **Downloads**: instaladores e ISOs. Fotos, vídeos e documentos ficam.
@@ -99,16 +125,16 @@ O fluxo é sempre o mesmo:
 
 ### O que ela nunca faz sozinha
 
-- Apagar sem você aprovar naquele chat.
+- Apagar sem você aprovar naquela conversa.
 - Remover o checkout principal de um repositório.
-- Mexer em worktrees modificadas há menos de 2 dias (podem estar em uso).
+- Mexer em worktrees modificadas há menos de 2 dias (podem estar em uso por um agente).
 - Alterar pagefile, rodar comandos de administrador ou contornar bloqueios de permissão.
 
 ---
 
 ## Scripts incluídos
 
-Ficam em `scripts\`. O Claude chama todos sozinho, mas você também pode rodá-los à mão:
+Ficam em `scripts\`. O agente chama todos sozinho, mas você também pode rodá-los à mão no PowerShell:
 
 | Script | O que faz |
 |---|---|
